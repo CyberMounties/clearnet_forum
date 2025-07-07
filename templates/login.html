@@ -1,0 +1,21 @@
+<!-- templates/login.html -->
+{% extends 'base.html' %}
+{% block title %}Login - Cyber Forum{% endblock %}
+{% block content %}
+    <h2 class="text-light">Login</h2>
+    <div class="card bg-dark border-secondary">
+        <div class="card-body">
+            <form>
+                <div class="mb-3">
+                    <label for="username" class="form-label text-light">Username</label>
+                    <input type="text" id="username" class="form-control bg-dark text-light border-secondary" placeholder="Enter username">
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label text-light">Password</label>
+                    <input type="password" id="password" class="form-control bg-dark text-light border-secondary" placeholder="Enter password">
+                </div>
+                <button type="submit" class="btn btn-outline-secondary">Login</button>
+            </form>
+        </div>
+    </div>
+{% endblock %}

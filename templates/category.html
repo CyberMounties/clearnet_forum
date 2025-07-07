@@ -1,0 +1,23 @@
+<!-- templates/category.html -->
+{% extends 'base.html' %}
+{% block title %}{{ category }} - Cyber Forum{% endblock %}
+{% block content %}
+    <h2 class="text-light">{{ category }}</h2>
+    <div class="card bg-dark border-secondary">
+        <div class="card-body">
+            <table class="table table-dark table-hover">
+                <thead class="table-dark">
+                    <tr>
+                        <th scope="col">Title</th>
+                        <th scope="col">Posted By</th>
+                        <th scope="col">Date</th>
+                        <th scope="col">Comments</th>
+                        <th scope="col">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="text-light" id="category-posts-table"></tbody>
+            </table>
+        </div>
+    </div>
+    <a href="{{ url_for('home') }}" class="btn btn-outline-secondary mt-3">Back to Home</a>
+{% endblock %}
