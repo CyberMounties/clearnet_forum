@@ -1,5 +1,6 @@
 # populate_db.py
 from flask import Flask
+from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from models import db, User, Shoutbox, Announcement, Marketplace, Service, Comment
 from datetime import datetime, timedelta
@@ -10,7 +11,7 @@ import logging
 NUM_SHOUTBOX_MESSAGES = 20
 NUM_POSTS_PER_CATEGORY = 13
 NUM_COMMENTS_PER_POST = 2
-NUM_IAB_SELLER_POSTS = 4  # Number of explicit IAB posts in Sellers category
+NUM_IAB_SELLER_POSTS = 3  # Number of random IAB posts in Sellers (10 predefined + 3 = 13)
 
 # Configure logging
 logging.basicConfig(
@@ -159,6 +160,59 @@ def init_db():
             "company": ["Acme Corp", "TechTrend Inc", "GlobalSys Ltd", "DataCore Solutions"],
             "status": ["verified admin access", "full network control", "recent breach", "exclusive access"]
         }
+        # Predefined IAB posts for Sellers
+        predefined_iab_posts = [
+            {
+                "title": "TD Bank RDP Access",
+                "description": "Company: TD Bank\nRevenue: $1.64 billion\nIndustry: Banking\nAccess type: RDP\nPrice: DM me for price, serious buyers only, MM accepted",
+                "price": "DM for price"
+            },
+            {
+                "title": "Selling SMB Access to RBC Bank",
+                "description": "Selling SMB access to RBC bank\nRevenue: $5.21\nIndustry: Banking\nCusomters: over 10 million\nCountry: Canada\n\n$12,000 Price is non-negotiatiable, dm me",
+                "price": "$12000"
+            },
+            {
+                "title": "Capital Freight Co. Access",
+                "description": "Selling access to Capital Freight Co. (Texas-based logistics)\nRevenue: ~$900M\nAccess: Full RDP, domain admin via svc_x backup creds\nExtras: Internal invoices, mapped drives, Outlook web creds\nEDR: minimal – Defender only\nPrice: 0.6 BTC firm, BTC only, DM me quick",
+                "price": "0.6 BTC"
+            },
+            {
+                "title": "AspenWell Biotech Ltd Access",
+                "description": "Company: AspenWell Biotech Ltd\nLocation: Netherlands\nRevenue: $1.3 billion\nAccess type: VPN > internal RDP > DA\nAdditional: SharePoint exposed, RMM agent deployed\nSecurity: No AV on internal, no logs tripped\nPrice: 1.05 BTC, escrow ok w/ rep\nSelling to ONE buyer only.",
+                "price": "1.05 BTC"
+            },
+            {
+                "title": "GLOBEX Holdings VPN Access",
+                "description": "got corp vpn + psremote into GLOBEX Holdings, some UK fintech trash\nDA rights, creds pulled from exposed git repo (lol)\nno EDR, just weak-ass AV. internal docs and finance data wide open\nnot waitin long. 0.7 BTC. msg only if u got coin",
+                "price": "0.7 BTC"
+            },
+            {
+                "title": "Arctic Foods Group RDP Access",
+                "description": "ACCESS TO ARCTIC FOODS GROUP\n– Canada HQ’d food distributor\n– RDP w/ DA, access stable 4 days\n– billing, inventory, HR PDFs open\n– Sophos AV but neutered\nRevenue: 2.1B CAD\nPrice: 1.2 BTC\nFAST BUYERS ONLY. No vouches, no timewasters.",
+                "price": "1.2 BTC"
+            },
+            {
+                "title": "Silverline Capital Partners Access",
+                "description": "Company: Silverline Capital Partners (NY Private Equity firm)\nRevenue: approx $500M AUM\nAccess: RDP into domain w/ admin rights\nDetected: not yet, 3 days stable\nBonus: Access to doc mgmt system + Zoom internal creds\nSelling for 0.9 BTC – will include persistence script\nDM to deal",
+                "price": "0.9 BTC"
+            },
+            {
+                "title": "Veritas Health Partners Access",
+                "description": "Access for sale: Veritas Health Partners, Canada\nRevenue: ~$430M\nIndustry: Healthcare\nAccess type: VPN + working RDP\nPrivilege: Local admin w/ internal share access\nNot detected – 6 days uptime\nPrice: 0.58 BTC firm",
+                "price": "0.58 BTC"
+            },
+            {
+                "title": "Portwell Maritime Group Access",
+                "description": "Selling access to Portwell Maritime Group (Singapore)\nAccess: DA creds via exposed RDP svc acct\nRevenue: Est. $2B\nIndustry: Shipping / Transport\nExtras: payroll exports + crew schedules\nContact: DM if you’ve dealt before. Fast buyers only.",
+                "price": "DM for price"
+            },
+            {
+                "title": "Monarch Real Estate Access",
+                "description": "Company: Monarch Real Estate Investments\nLocation: USA, NY\nRevenue: $380M\nAccess: Citrix > internal RDP > DA\nPersistence set, untouched for 4+ days\nBacked up docs + client lease agreements accessible\nPrice: 0.7 BTC, serious people only",
+                "price": "0.7 BTC"
+            }
+        ]
         service_templates = {
             "title": {
                 "Buy": [
@@ -254,31 +308,34 @@ def init_db():
         categories = ['Buyers', 'Sellers']
         for category in categories:
             logger.info(f"Populating {category} marketplace posts with {NUM_POSTS_PER_CATEGORY} posts")
-            # For Sellers, mix IAB and non-IAB posts
             if category == 'Sellers':
-                iab_posts = min(NUM_IAB_SELLER_POSTS, NUM_POSTS_PER_CATEGORY)
-                non_iab_posts = NUM_POSTS_PER_CATEGORY - iab_posts
-                post_indices = [1] * iab_posts + [0] * non_iab_posts
-                random.shuffle(post_indices)
-            else:
-                post_indices = [0] * NUM_POSTS_PER_CATEGORY  # Buyers: all non-IAB
+                # Add predefined IAB posts
+                predefined_count = len(predefined_iab_posts)
+                for i, post in enumerate(predefined_iab_posts):
+                    market = Marketplace(
+                        category=category,
+                        title=post["title"][:100],
+                        description=post["description"][:200],
+                        user_id=random.choice(user_ids),
+                        price=post["price"],
+                        date=random_timestamp()
+                    )
+                    db.session.add(market)
+                    logger.info(f"Added {category} predefined IAB post {i + 1}/{predefined_count}: {post['title'][:30]}...")
+                try:
+                    db.session.commit()
+                    logger.info(f"Committed {predefined_count} predefined IAB posts for {category}")
+                except Exception as e:
+                    logger.error(f"Error committing predefined IAB posts: {str(e)}")
+                    db.session.rollback()
+                    return
 
-            for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
-                batch_size = min(5, NUM_POSTS_PER_CATEGORY - i)
-                titles = []
-                descriptions = []
-                for j in range(batch_size):
-                    idx = i + j
-                    if category == 'Sellers' and post_indices[idx] == 1:
-                        title = generate_text(random.choice(iab_marketplace_templates["title"]), iab_replacements)[:100]
-                        description = generate_text(random.choice(iab_marketplace_templates["description"]), iab_replacements)[:200]
-                    else:
-                        title = generate_text(random.choice(marketplace_templates["title"][category]), marketplace_replacements)[:100]
-                        description = generate_text(random.choice(marketplace_templates["description"][category]), marketplace_replacements)[:200]
-                    titles.append(title)
-                    descriptions.append(description)
-                for j, (title, description) in enumerate(zip(titles, descriptions)):
-                    price = f"${random.randint(50, 1000)}" if category == 'Sellers' else f"Offer ${random.randint(50, 500)}"
+                # Add random IAB posts
+                iab_posts = min(NUM_IAB_SELLER_POSTS, NUM_POSTS_PER_CATEGORY - predefined_count)
+                for i in range(iab_posts):
+                    title = generate_text(random.choice(iab_marketplace_templates["title"]), iab_replacements)[:100]
+                    description = generate_text(random.choice(iab_marketplace_templates["description"]), iab_replacements)[:200]
+                    price = f"${random.randint(50, 1000)}"
                     market = Marketplace(
                         category=category,
                         title=title,
@@ -288,14 +345,41 @@ def init_db():
                         date=random_timestamp()
                     )
                     db.session.add(market)
-                    logger.info(f"Added {category} marketplace post {i + j + 1}/{NUM_POSTS_PER_CATEGORY}: {title[:30]}...")
+                    logger.info(f"Added {category} random IAB post {i + 1}/{iab_posts}: {title[:30]}...")
                 try:
                     db.session.commit()
-                    logger.info(f"Committed {category} marketplace posts {i + 1}-{i + batch_size}")
+                    logger.info(f"Committed {iab_posts} random IAB posts for {category}")
                 except Exception as e:
-                    logger.error(f"Error committing {category} marketplace posts: {str(e)}")
+                    logger.error(f"Error committing random IAB posts: {str(e)}")
                     db.session.rollback()
                     return
+
+                # No non-IAB posts needed since 10 predefined + 3 random = 13
+            else:
+                # Buyers: all non-IAB
+                for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
+                    batch_size = min(5, NUM_POSTS_PER_CATEGORY - i)
+                    titles = [generate_text(random.choice(marketplace_templates["title"][category]), marketplace_replacements)[:100] for _ in range(batch_size)]
+                    descriptions = [generate_text(random.choice(marketplace_templates["description"][category]), marketplace_replacements)[:200] for _ in range(batch_size)]
+                    for j, (title, description) in enumerate(zip(titles, descriptions)):
+                        price = f"Offer ${random.randint(50, 500)}"
+                        market = Marketplace(
+                            category=category,
+                            title=title,
+                            description=description,
+                            user_id=random.choice(user_ids),
+                            price=price,
+                            date=random_timestamp()
+                        )
+                        db.session.add(market)
+                        logger.info(f"Added {category} marketplace post {i + j + 1}/{NUM_POSTS_PER_CATEGORY}: {title[:30]}...")
+                    try:
+                        db.session.commit()
+                        logger.info(f"Committed {category} marketplace posts {i + 1}-{i + batch_size}")
+                    except Exception as e:
+                        logger.error(f"Error committing {category} marketplace posts: {str(e)}")
+                        db.session.rollback()
+                        return
 
         # Populate Services (NUM_POSTS_PER_CATEGORY per category: Buy, Sell)
         categories = ['Buy', 'Sell']

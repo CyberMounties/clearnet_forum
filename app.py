@@ -149,7 +149,7 @@ def get_shoutbox():
     shoutbox = Shoutbox.query.order_by(Shoutbox.timestamp.desc()).limit(10).all()
     return jsonify([{
         'id': item.id,
-        'username': item.user.username,
+        'username': item.author.username,  # Changed from user to author
         'message': item.message,
         'timestamp': item.timestamp
     } for item in shoutbox])
@@ -162,7 +162,7 @@ def get_announcements():
         'category': item.category,
         'title': item.title,
         'content': item.content,
-        'username': item.user.username,
+        'username': item.author.username,  # Changed from user to author
         'date': item.date
     } for item in announcements])
 
@@ -173,8 +173,8 @@ def get_marketplace():
         'id': item.id,
         'category': item.category,
         'title': item.title,
-        'description': item.description,
-        'username': item.user.username,
+        'description': item.description.replace('\n', '<br>'),  # Replace newlines for HTML
+        'username': item.author.username,  # Changed from user to author
         'price': item.price,
         'date': item.date
     } for item in marketplace])
@@ -187,7 +187,7 @@ def get_services():
         'category': item.category,
         'title': item.title,
         'description': item.description,
-        'username': item.user.username,
+        'username': item.author.username,  # Changed from user to author
         'price': item.price,
         'date': item.date
     } for item in services])
@@ -223,7 +223,7 @@ def get_posts_by_category(post_type, category):
                 'category': post.category,
                 'title': post.title,
                 'content': post.content,
-                'username': post.user.username,
+                'username': post.author.username,  # Changed from user to author
                 'date': post.date,
                 'comments': Comment.query.filter_by(post_type='announcement', post_id=post.id).count()
             } for post in posts.items],
@@ -237,8 +237,8 @@ def get_posts_by_category(post_type, category):
                 'id': post.id,
                 'category': post.category,
                 'title': post.title,
-                'description': post.description,
-                'username': post.user.username,
+                'description': post.description.replace('\n', '<br>'),  # Replace newlines for HTML
+                'username': post.author.username,  # Changed from user to author
                 'price': post.price,
                 'date': post.date,
                 'comments': Comment.query.filter_by(post_type='marketplace', post_id=post.id).count()
@@ -254,7 +254,7 @@ def get_posts_by_category(post_type, category):
                 'category': post.category,
                 'title': post.title,
                 'description': post.description,
-                'username': post.user.username,
+                'username': post.author.username,  # Changed from user to author
                 'price': post.price,
                 'date': post.date,
                 'comments': Comment.query.filter_by(post_type='service', post_id=post.id).count()
@@ -280,7 +280,7 @@ def search_posts():
             'category': post.category,
             'title': post.title,
             'content': post.content,
-            'username': post.user.username,
+            'username': post.author.username,  # Changed from user to author
             'date': post.date,
             'post_type': 'announcements'
         } for post in announcements])
@@ -293,8 +293,8 @@ def search_posts():
             'id': post.id,
             'category': post.category,
             'title': post.title,
-            'description': post.description,
-            'username': post.user.username,
+            'description': post.description.replace('\n', '<br>'),  # Replace newlines for HTML
+            'username': post.author.username,  # Changed from user to author
             'price': post.price,
             'date': post.date,
             'post_type': 'marketplace'
@@ -309,7 +309,7 @@ def search_posts():
             'category': post.category,
             'title': post.title,
             'description': post.description,
-            'username': post.user.username,
+            'username': post.author.username,  # Changed from user to author
             'price': post.price,
             'date': post.date,
             'post_type': 'services'
