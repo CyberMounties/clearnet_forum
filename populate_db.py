@@ -1,6 +1,5 @@
 # populate_db.py
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 from flask_bcrypt import Bcrypt
 from models import db, User, Shoutbox, Announcement, Marketplace, Service, Comment
 from datetime import datetime, timedelta
