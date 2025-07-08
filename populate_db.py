@@ -8,6 +8,11 @@ import random
 import logging
 from transformers import pipeline
 
+# Configuration variables
+NUM_SHOUTBOX_MESSAGES = 20
+NUM_POSTS_PER_CATEGORY = 13
+NUM_COMMENTS_PER_POST = 2
+
 # Configure logging
 logging.basicConfig(
     level=logging.INFO,
@@ -116,10 +121,10 @@ def init_db():
             "Confirm a successful transaction for stolen data: "
         ]
 
-        # Populate Shoutbox (50 messages)
-        logger.info("Populating shoutbox with 50 messages")
-        for i in range(0, 50, 5):  # Batch of 5
-            batch_size = min(5, 50 - i)
+        # Populate Shoutbox
+        logger.info(f"Populating shoutbox with {NUM_SHOUTBOX_MESSAGES} messages")
+        for i in range(0, NUM_SHOUTBOX_MESSAGES, 5):  # Batch of 5
+            batch_size = min(5, NUM_SHOUTBOX_MESSAGES - i)
             prompt = random.choice([
                 "Shout about new IAB marketplace drops: ",
                 "Seek cyber-crime services in a shoutbox: ",
@@ -133,7 +138,7 @@ def init_db():
                     timestamp=random_timestamp()
                 )
                 db.session.add(shout)
-                logger.info(f"Added shoutbox message {i + j + 1}/50: {message[:30]}...")
+                logger.info(f"Added shoutbox message {i + j + 1}/{NUM_SHOUTBOX_MESSAGES}: {message[:30]}...")
             try:
                 db.session.commit()
                 logger.info(f"Committed shoutbox messages {i + 1}-{i + batch_size}")
@@ -142,12 +147,12 @@ def init_db():
                 db.session.rollback()
                 return
 
-        # Populate Announcements (50 per category: Announcements, General, MM Service)
+        # Populate Announcements (NUM_POSTS_PER_CATEGORY per category: Announcements, General, MM Service)
         categories = ['Announcements', 'General', 'MM Service']
         for category in categories:
-            logger.info(f"Populating {category} announcements")
-            for i in range(0, 50, 5):  # Batch of 5
-                batch_size = min(5, 50 - i)
+            logger.info(f"Populating {category} announcements with {NUM_POSTS_PER_CATEGORY} posts")
+            for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
+                batch_size = min(5, NUM_POSTS_PER_CATEGORY - i)
                 title_prompt = f"Short title for a {category} post about cyber-crime: "
                 titles = generate_text(title_prompt, max_tokens=50, batch_size=batch_size)
                 contents = generate_text(random.choice(announcement_prompts), max_tokens=200, batch_size=batch_size)
@@ -160,7 +165,7 @@ def init_db():
                         date=random_timestamp()
                     )
                     db.session.add(ann)
-                    logger.info(f"Added {category} announcement {i + j + 1}/50: {title[:30]}...")
+                    logger.info(f"Added {category} announcement {i + j + 1}/{NUM_POSTS_PER_CATEGORY}: {title[:30]}...")
                 try:
                     db.session.commit()
                     logger.info(f"Committed {category} announcements {i + 1}-{i + batch_size}")
@@ -169,12 +174,12 @@ def init_db():
                     db.session.rollback()
                     return
 
-        # Populate Marketplace (50 per category: Buyers, Sellers)
+        # Populate Marketplace (NUM_POSTS_PER_CATEGORY per category: Buyers, Sellers)
         categories = ['Buyers', 'Sellers']
         for category in categories:
-            logger.info(f"Populating {category} marketplace posts")
-            for i in range(0, 50, 5):  # Batch of 5
-                batch_size = min(5, 50 - i)
+            logger.info(f"Populating {category} marketplace posts with {NUM_POSTS_PER_CATEGORY} posts")
+            for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
+                batch_size = min(5, NUM_POSTS_PER_CATEGORY - i)
                 title_prompt = f"Short title for a {category} marketplace post: "
                 titles = generate_text(title_prompt, max_tokens=50, batch_size=batch_size)
                 descriptions = generate_text(random.choice(marketplace_prompts), max_tokens=200, batch_size=batch_size)
@@ -189,7 +194,7 @@ def init_db():
                         date=random_timestamp()
                     )
                     db.session.add(market)
-                    logger.info(f"Added {category} marketplace post {i + j + 1}/50: {title[:30]}...")
+                    logger.info(f"Added {category} marketplace post {i + j + 1}/{NUM_POSTS_PER_CATEGORY}: {title[:30]}...")
                 try:
                     db.session.commit()
                     logger.info(f"Committed {category} marketplace posts {i + 1}-{i + batch_size}")
@@ -198,12 +203,12 @@ def init_db():
                     db.session.rollback()
                     return
 
-        # Populate Services (50 per category: Buy, Sell)
+        # Populate Services (NUM_POSTS_PER_CATEGORY per category: Buy, Sell)
         categories = ['Buy', 'Sell']
         for category in categories:
-            logger.info(f"Populating {category} service posts")
-            for i in range(0, 50, 5):  # Batch of 5
-                batch_size = min(5, 50 - i)
+            logger.info(f"Populating {category} service posts with {NUM_POSTS_PER_CATEGORY} posts")
+            for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
+                batch_size = min(5, NUM_POSTS_PER_CATEGORY - i)
                 title_prompt = f"Short title for a {category} service post: "
                 titles = generate_text(title_prompt, max_tokens=50, batch_size=batch_size)
                 descriptions = generate_text(random.choice(service_prompts), max_tokens=200, batch_size=batch_size)
@@ -218,7 +223,7 @@ def init_db():
                         date=random_timestamp()
                     )
                     db.session.add(service)
-                    logger.info(f"Added {category} service post {i + j + 1}/50: {title[:30]}...")
+                    logger.info(f"Added {category} service post {i + j + 1}/{NUM_POSTS_PER_CATEGORY}: {title[:30]}...")
                 try:
                     db.session.commit()
                     logger.info(f"Committed {category} service posts {i + 1}-{i + batch_size}")
@@ -227,14 +232,15 @@ def init_db():
                     db.session.rollback()
                     return
 
-        # Populate Comments (5 comments per post)
-        logger.info("Populating comments")
+        # Populate Comments (NUM_COMMENTS_PER_POST per post)
+        logger.info(f"Populating comments ({NUM_COMMENTS_PER_POST} per post)")
         announcement_ids = [(post.id, 'announcement') for post in Announcement.query.all()]
         marketplace_ids = [(post.id, 'marketplace') for post in Marketplace.query.all()]
         service_ids = [(post.id, 'service') for post in Service.query.all()]
         all_posts = announcement_ids + marketplace_ids + service_ids
+        total_comments = len(all_posts) * NUM_COMMENTS_PER_POST
         for i, (post_id, post_type) in enumerate(all_posts):
-            for j in range(5):
+            for j in range(NUM_COMMENTS_PER_POST):
                 content = generate_text(random.choice(comment_prompts), max_tokens=100)[:100]
                 comment = Comment(
                     post_type=post_type,
@@ -244,7 +250,7 @@ def init_db():
                     date=random_timestamp()
                 )
                 db.session.add(comment)
-                logger.info(f"Added comment {j + 1}/5 for {post_type} post {post_id}: {content[:30]}...")
+                logger.info(f"Added comment {j + 1}/{NUM_COMMENTS_PER_POST} for {post_type} post {post_id}: {content[:30]}...")
             try:
                 db.session.commit()
                 logger.info(f"Committed comments for {post_type} post {i + 1}/{len(all_posts)}")
@@ -253,8 +259,9 @@ def init_db():
                 db.session.rollback()
                 return
 
+        total_posts = NUM_POSTS_PER_CATEGORY * (len(['Announcements', 'General', 'MM Service']) + len(['Buyers', 'Sellers']) + len(['Buy', 'Sell']))
         logger.info("Database population completed successfully")
-        print("Database initialized with 10 users, 350 posts, 50 shoutbox messages, and 1750 comments.")
+        print(f"Database initialized with 10 users, {total_posts} posts, {NUM_SHOUTBOX_MESSAGES} shoutbox messages, and {total_comments} comments.")
 
 if __name__ == '__main__':
     init_db()
