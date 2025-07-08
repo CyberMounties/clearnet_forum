@@ -13,7 +13,7 @@
                     {{ post.description }}
                     <br><strong>Price:</strong> {{ post.price or 'N/A' }}
                 {% endif %}
-                <br><strong>Posted by:</strong> <a href="{{ url_for('profile_detail', username=post.username) }}" class="text-light">{{ post.username }}</a>
+                <br><strong>Posted by:</strong> <a href="{{ url_for('profile_detail', username=post.user.username) }}" class="text-light">{{ post.user.username }}</a>
                 <br><strong>Date:</strong> {{ post.date }}
             </p>
         </div>
@@ -40,7 +40,7 @@
             {% if comments %}
                 {% for comment in comments %}
                     <div class="mb-3">
-                        <p class="text-light"><strong>{{ comment.username }}</strong> ({{ comment.date }}): {{ comment.content }}</p>
+                        <p class="text-light"><strong>{{ comment.user.username }}</strong> ({{ comment.date }}): {{ comment.content }}</p>
                     </div>
                 {% endfor %}
             {% else %}

@@ -99,20 +99,49 @@ def post_detail(post_type, post_id):
         comments = Comment.query.filter_by(post_type='service', post_id=post_id).order_by(Comment.date.desc()).all()
     else:
         return render_template('404.html'), 404
-    user = User.query.filter_by(username=post.username).first_or_404()
-    post_count = (Announcement.query.filter_by(username=post.username).count() +
-                  Marketplace.query.filter_by(username=post.username).count() +
-                  Service.query.filter_by(username=post.username).count())
+    user = User.query.get_or_404(post.user_id)
+    post_count = len(user.announcements) + len(user.marketplace_posts) + len(user.services)
     return render_template('post_detail.html', post=post, post_type=post_type, comments=comments, user=user, post_count=post_count)
 
 @app.route('/profile/<username>')
 @login_required
 def profile_detail(username):
     user = User.query.filter_by(username=username).first_or_404()
-    post_count = (Announcement.query.filter_by(username=username).count() +
-                  Marketplace.query.filter_by(username=username).count() +
-                  Service.query.filter_by(username=username).count())
-    return render_template('profile_detail.html', user=user, post_count=post_count)
+    post_count = len(user.announcements) + len(user.marketplace_posts) + len(user.services)
+    posts = []
+    for post in user.announcements:
+        posts.append({
+            'post_type': 'announcements',
+            'id': post.id,
+            'category': post.category,
+            'title': post.title,
+            'content': post.content,
+            'date': post.date,
+            'comments': Comment.query.filter_by(post_type='announcement', post_id=post.id).count()
+        })
+    for post in user.marketplace_posts:
+        posts.append({
+            'post_type': 'marketplace',
+            'id': post.id,
+            'category': post.category,
+            'title': post.title,
+            'description': post.description,
+            'price': post.price,
+            'date': post.date,
+            'comments': Comment.query.filter_by(post_type='marketplace', post_id=post.id).count()
+        })
+    for post in user.services:
+        posts.append({
+            'post_type': 'services',
+            'id': post.id,
+            'category': post.category,
+            'title': post.title,
+            'description': post.description,
+            'price': post.price,
+            'date': post.date,
+            'comments': Comment.query.filter_by(post_type='service', post_id=post.id).count()
+        })
+    return render_template('profile_detail.html', user=user, post_count=post_count, posts=posts)
 
 # API endpoints for dynamic data
 @app.route('/api/shoutbox')
@@ -120,7 +149,7 @@ def get_shoutbox():
     shoutbox = Shoutbox.query.order_by(Shoutbox.timestamp.desc()).limit(10).all()
     return jsonify([{
         'id': item.id,
-        'username': item.username,
+        'username': item.user.username,
         'message': item.message,
         'timestamp': item.timestamp
     } for item in shoutbox])
@@ -133,7 +162,7 @@ def get_announcements():
         'category': item.category,
         'title': item.title,
         'content': item.content,
-        'username': item.username,
+        'username': item.user.username,
         'date': item.date
     } for item in announcements])
 
@@ -145,7 +174,7 @@ def get_marketplace():
         'category': item.category,
         'title': item.title,
         'description': item.description,
-        'username': item.username,
+        'username': item.user.username,
         'price': item.price,
         'date': item.date
     } for item in marketplace])
@@ -158,7 +187,7 @@ def get_services():
         'category': item.category,
         'title': item.title,
         'description': item.description,
-        'username': item.username,
+        'username': item.user.username,
         'price': item.price,
         'date': item.date
     } for item in services])
@@ -194,7 +223,7 @@ def get_posts_by_category(post_type, category):
                 'category': post.category,
                 'title': post.title,
                 'content': post.content,
-                'username': post.username,
+                'username': post.user.username,
                 'date': post.date,
                 'comments': Comment.query.filter_by(post_type='announcement', post_id=post.id).count()
             } for post in posts.items],
@@ -209,7 +238,7 @@ def get_posts_by_category(post_type, category):
                 'category': post.category,
                 'title': post.title,
                 'description': post.description,
-                'username': post.username,
+                'username': post.user.username,
                 'price': post.price,
                 'date': post.date,
                 'comments': Comment.query.filter_by(post_type='marketplace', post_id=post.id).count()
@@ -225,7 +254,7 @@ def get_posts_by_category(post_type, category):
                 'category': post.category,
                 'title': post.title,
                 'description': post.description,
-                'username': post.username,
+                'username': post.user.username,
                 'price': post.price,
                 'date': post.date,
                 'comments': Comment.query.filter_by(post_type='service', post_id=post.id).count()
@@ -251,7 +280,7 @@ def search_posts():
             'category': post.category,
             'title': post.title,
             'content': post.content,
-            'username': post.username,
+            'username': post.user.username,
             'date': post.date,
             'post_type': 'announcements'
         } for post in announcements])
@@ -265,7 +294,7 @@ def search_posts():
             'category': post.category,
             'title': post.title,
             'description': post.description,
-            'username': post.username,
+            'username': post.user.username,
             'price': post.price,
             'date': post.date,
             'post_type': 'marketplace'
@@ -280,7 +309,7 @@ def search_posts():
             'category': post.category,
             'title': post.title,
             'description': post.description,
-            'username': post.username,
+            'username': post.user.username,
             'price': post.price,
             'date': post.date,
             'post_type': 'services'
