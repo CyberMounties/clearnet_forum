@@ -1,16 +1,17 @@
 # app.py
-from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 from models import db, User, Shoutbox, Announcement, Marketplace, Service, Comment
+import string, random, os 
+from captcha.image import ImageCaptcha
+
 
 app = Flask(__name__)
-
-# Configure SQLAlchemy and Flask
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config['SECRET_KEY'] = 'your-secret-key-here'  # Replace with a secure key
+app.config['SECRET_KEY'] = 'your-secret-key-here'
 db.init_app(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
@@ -38,19 +39,66 @@ def services():
 def search():
     return render_template('search.html')
 
+# CAPTCHA configuration
+CAPTCHA_LENGTH = 8
+CAPTCHA_CHARS = string.ascii_uppercase + string.digits
+image_captcha = ImageCaptcha(fonts=['fonts/DejaVuSans.ttf'], width=200, height=60)
+
+
+def generate_captcha():
+    """Generate an 8-character CAPTCHA and image."""
+    code = ''.join(random.choice(CAPTCHA_CHARS) for _ in range(CAPTCHA_LENGTH))
+    image_path = os.path.join('static', 'captchas', f'captcha_{code}.png')
+    image_captcha.write(code, image_path)
+    return code, image_path
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if current_user.is_authenticated:
         return redirect(url_for('home'))
-    if request.method == 'POST':
-        username = request.form['username']
-        password = request.form['password']
-        user = User.query.filter_by(username=username).first()
-        if user and bcrypt.check_password_hash(user.password, password):
-            login_user(user)
-            return redirect(url_for('home'))
-        flash('Invalid username or password', 'danger')
-    return render_template('login.html')
+    
+    # Generate CAPTCHA for GET request
+    if request.method == 'GET':
+        captcha_code, captcha_image = generate_captcha()
+        session['captcha'] = captcha_code
+        session['captcha_image'] = captcha_image
+        return render_template('login.html', captcha_image=captcha_image)
+    
+    # Handle POST request
+    username = request.form['username']
+    password = request.form['password']
+    captcha_input = request.form['captcha'].strip().upper()
+    
+    # Validate CAPTCHA first
+    if captcha_input != session.get('captcha'):
+        flash('Invalid CAPTCHA', 'danger')
+        # Generate new CAPTCHA for next attempt
+        captcha_code, captcha_image = generate_captcha()
+        session['captcha'] = captcha_code
+        session['captcha_image'] = captcha_image
+        return render_template('login.html', captcha_image=captcha_image)
+    
+    # Validate credentials
+    user = User.query.filter_by(username=username).first()
+    if user and bcrypt.check_password_hash(user.password, password):
+        login_user(user)
+        captcha_image = session.get('captcha_image')
+        session.pop('captcha', None)
+        session.pop('captcha_image', None)
+        if captcha_image:  # Ensure path exists before removing
+            try:
+                os.remove(captcha_image)
+            except OSError as e:
+                print(f"Error deleting CAPTCHA image: {e}")
+        return redirect(url_for('home'))
+    
+    flash('Invalid username or password', 'danger')
+    # Generate new CAPTCHA for next attempt
+    captcha_code, captcha_image = generate_captcha()
+    session['captcha'] = captcha_code
+    session['captcha_image'] = captcha_image  # Store new image path
+    return render_template('login.html', captcha_image=captcha_image)
+
 
 @app.route('/register', methods=['GET', 'POST'])
 def register():
