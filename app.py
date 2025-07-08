@@ -214,7 +214,7 @@ def get_category_counts():
 @app.route('/api/posts/<post_type>/<category>')
 def get_posts_by_category(post_type, category):
     page = request.args.get('page', 1, type=int)
-    per_page = 20
+    per_page = 10
     if post_type == 'announcements':
         posts = Announcement.query.filter_by(category=category).order_by(Announcement.date.desc()).paginate(page=page, per_page=per_page, error_out=False)
         return jsonify({

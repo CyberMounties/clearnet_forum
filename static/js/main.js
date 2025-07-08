@@ -69,6 +69,8 @@ $(document).ready(function() {
     if ($('#shoutbox').length) {
         loadShoutbox();
         loadCategoryCounts();
+        // Poll shoutbox every 5 seconds
+        setInterval(loadShoutbox, 5000);
     }
 
     // Load data on category page

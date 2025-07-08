@@ -24,7 +24,6 @@
                             <th scope="col">Type</th>
                             <th scope="col">Category</th>
                             <th scope="col">Title</th>
-                            <th scope="col">Content/Description</th>
                             <th scope="col">Price</th>
                             <th scope="col">Date</th>
                             <th scope="col">Comments</th>
@@ -37,7 +36,6 @@
                                 <td>{{ post.post_type | capitalize }}</td>
                                 <td>{{ post.category }}</td>
                                 <td>{{ post.title }}</td>
-                                <td>{{ post.content or post.description or '' }}</td>
                                 <td>{{ post.price or 'N/A' }}</td>
                                 <td>{{ post.date }}</td>
                                 <td>{{ post.comments }}</td>

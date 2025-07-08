@@ -6,12 +6,12 @@ from models import db, User, Shoutbox, Announcement, Marketplace, Service, Comme
 from datetime import datetime, timedelta
 import random
 import logging
-from transformers import pipeline
 
 # Configuration variables
 NUM_SHOUTBOX_MESSAGES = 20
 NUM_POSTS_PER_CATEGORY = 13
 NUM_COMMENTS_PER_POST = 2
+NUM_IAB_SELLER_POSTS = 4  # Number of explicit IAB posts in Sellers category
 
 # Configure logging
 logging.basicConfig(
@@ -24,32 +24,22 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Suppress transformers verbose output
-logging.getLogger('transformers').setLevel(logging.ERROR)
-
 app = Flask(__name__)
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db.init_app(app)
 bcrypt = Bcrypt(app)
 
-# Initialize NLP pipeline
-generator = pipeline('text-generation', model='gpt2', device=-1)  # -1 for CPU
-
-def generate_text(prompt, max_tokens, batch_size=1):
+def generate_text(template, replacements):
+    """Generate text by replacing placeholders in template with random choices from replacements."""
     try:
-        results = generator(
-            [prompt] * batch_size,
-            max_new_tokens=max_tokens,
-            num_return_sequences=1,
-            truncation=True,
-            pad_token_id=generator.tokenizer.eos_token_id
-        )
-        texts = [result[0]['generated_text'].replace(prompt, '').strip() for result in results]
-        return texts[0] if batch_size == 1 else texts
+        text = template
+        for key, values in replacements.items():
+            text = text.replace(f"{{{key}}}", random.choice(values))
+        return text.strip()
     except Exception as e:
-        logger.error(f"Error generating text for prompt '{prompt}': {str(e)}")
-        return ["Generated text error"] * batch_size
+        logger.error(f"Error generating text for template '{template}': {str(e)}")
+        return "Generated text error"
 
 def init_db():
     with app.app_context():
@@ -96,45 +86,133 @@ def init_db():
             seconds_ago = random.randint(0, 59)
             return (datetime.now() - timedelta(days=days_ago, hours=hours_ago, minutes=minutes_ago, seconds=seconds_ago)).strftime('%Y-%m-%d %H:%M:%S')
 
-        # Prompts for different categories
-        announcement_prompts = [
-            "Announce new rules for trading compromised RDP credentials: ",
-            "Discuss recent trends in dark web data breaches: ",
-            "Offer middleman services for secure IAB deals: ",
-            "Share tips for safe phishing kit trading: "
+        # Templates and replacements for text generation
+        shoutbox_templates = [
+            "New {item} drop in {place}!",
+            "Looking for {item}, PM me!",
+            "Anyone got {item} for sale?",
+            "Fresh {item} available, DM for details!"
         ]
-        marketplace_prompts = [
-            "Offer fresh SSH keys for sale: ",
-            "Seek stolen credit card details for purchase: ",
-            "Sell hacked PayPal accounts: ",
-            "Look for high-quality botnet access: "
+        shoutbox_replacements = {
+            "item": ["CC dumps", "PayPal accounts", "phishing kits", "DDoS service", "malware"],
+            "place": ["marketplace", "services", "dark pool"]
+        }
+        announcement_templates = {
+            "title": [
+                "{action} {item}",
+                "{item} {status} Update",
+                "New {item} Guidelines",
+                "Discuss {item} Trends"
+            ],
+            "content": [
+                "{action} {item}. Contact me for details.",
+                "Recent {item} trends show {status}. Share your thoughts!",
+                "Offering {service} for secure {item} deals. PM to join.",
+                "Tips: Always verify {item} before trading."
+            ]
+        }
+        announcement_replacements = {
+            "action": ["New rules for", "Tips for trading", "Offering", "Discussing"],
+            "item": ["data breaches", "phishing kits", "escrow services", "cyber-crime tools"],
+            "status": ["increased activity", "new methods", "high demand", "stricter rules"],
+            "service": ["middleman services", "secure deals", "escrow", "verification"]
+        }
+        marketplace_templates = {
+            "title": {
+                "Buyers": [
+                    "Need {item}, High Budget",
+                    "Looking for {item}",
+                    "Buying Fresh {item}",
+                    "Seeking {item} ASAP"
+                ],
+                "Sellers": [
+                    "Selling {item}",
+                    "Fresh {item} Available",
+                    "{item} for Sale, {status}",
+                    "High-Quality {item} Drop"
+                ]
+            },
+            "description": {
+                "Buyers": [
+                    "Looking for {item}, willing to pay {price}. PM with offers.",
+                    "Need clean {item}, urgent. DM me for details.",
+                    "Seeking reliable {item} source, escrow available.",
+                    "Buying {item}, top dollar for quality."
+                ],
+                "Sellers": [
+                    "Selling {item}, high quality, {status}. PM for details.",
+                    "Fresh batch of {item}, ready to use. Contact me!",
+                    "{item} available, {status}. Escrow accepted.",
+                    "High-validity {item}, bulk discounts available."
+                ]
+            }
+        }
+        marketplace_replacements = {
+            "item": ["CC dumps", "PayPal accounts", "gift card codes", "data leaks", "RDP credentials", "VPN logins"],
+            "status": ["clean and verified", "high balance", "freshly obtained", "limited stock"],
+            "price": ["$100-$500", "$50-$200", "negotiable", "top dollar"]
+        }
+        iab_marketplace_templates = {
+            "title": ["Access to {company} Network", "Selling {company} Credentials", "{company} IAB Drop"],
+            "description": ["Compromised {company} access, {status}. PM for secure deal.", "Selling {company} network credentials, clean. Escrow only."]
+        }
+        iab_replacements = {
+            "company": ["Acme Corp", "TechTrend Inc", "GlobalSys Ltd", "DataCore Solutions"],
+            "status": ["verified admin access", "full network control", "recent breach", "exclusive access"]
+        }
+        service_templates = {
+            "title": {
+                "Buy": [
+                    "Need {service} Expert",
+                    "Seeking {service}",
+                    "Looking for {service} Pro",
+                    "Requesting {service}"
+                ],
+                "Sell": [
+                    "Offering {service}",
+                    "{service} Available",
+                    "Professional {service}",
+                    "{service} for Hire"
+                ]
+            },
+            "description": {
+                "Buy": [
+                    "Need {service} for a project, {status}. PM with rates.",
+                    "Looking for reliable {service}, high budget. DM me.",
+                    "Seeking {service} expert, escrow available.",
+                    "Want {service}, urgent. Contact me!"
+                ],
+                "Sell": [
+                    "Providing {service}, {status}. PM for pricing.",
+                    "{service} with fast delivery, contact me.",
+                    "Professional {service}, {status}. Escrow accepted.",
+                    "Custom {service}, DM for details."
+                ]
+            }
+        }
+        service_replacements = {
+            "service": ["DDoS attacks", "phishing campaigns", "malware development", "SQL injection", "botnet rental"],
+            "status": ["fast and reliable", "guaranteed results", "24/7 support", "custom solutions"]
+        }
+        comment_templates = [
+            "Interested in {item}, PM sent!",
+            "Is {item} still available?",
+            "Can you verify {item} quality?",
+            "DM me for {item} details."
         ]
-        service_prompts = [
-            "Offer professional DDoS attack services: ",
-            "Seek an expert for custom malware development: ",
-            "Provide phishing campaign setup services: ",
-            "Request SQL injection expertise: "
-        ]
-        comment_prompts = [
-            "Express interest in an IAB deal: ",
-            "Ask for details on a cyber-crime service: ",
-            "Confirm a successful transaction for stolen data: "
-        ]
+        comment_replacements = {
+            "item": ["this deal", "your service", "the credentials", "this data"]
+        }
 
         # Populate Shoutbox
         logger.info(f"Populating shoutbox with {NUM_SHOUTBOX_MESSAGES} messages")
         for i in range(0, NUM_SHOUTBOX_MESSAGES, 5):  # Batch of 5
             batch_size = min(5, NUM_SHOUTBOX_MESSAGES - i)
-            prompt = random.choice([
-                "Shout about new IAB marketplace drops: ",
-                "Seek cyber-crime services in a shoutbox: ",
-                "Announce fresh non-IAB data for sale: "
-            ])
-            messages = generate_text(prompt, max_tokens=50, batch_size=batch_size)
+            messages = [generate_text(random.choice(shoutbox_templates), shoutbox_replacements)[:50] for _ in range(batch_size)]
             for j, message in enumerate(messages):
                 shout = Shoutbox(
                     user_id=random.choice(user_ids),
-                    message=message[:50],
+                    message=message,
                     timestamp=random_timestamp()
                 )
                 db.session.add(shout)
@@ -153,14 +231,13 @@ def init_db():
             logger.info(f"Populating {category} announcements with {NUM_POSTS_PER_CATEGORY} posts")
             for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
                 batch_size = min(5, NUM_POSTS_PER_CATEGORY - i)
-                title_prompt = f"Short title for a {category} post about cyber-crime: "
-                titles = generate_text(title_prompt, max_tokens=50, batch_size=batch_size)
-                contents = generate_text(random.choice(announcement_prompts), max_tokens=200, batch_size=batch_size)
+                titles = [generate_text(random.choice(announcement_templates["title"]), announcement_replacements)[:100] for _ in range(batch_size)]
+                contents = [generate_text(random.choice(announcement_templates["content"]), announcement_replacements)[:200] for _ in range(batch_size)]
                 for j, (title, content) in enumerate(zip(titles, contents)):
                     ann = Announcement(
                         category=category,
-                        title=title[:100],
-                        content=content[:200],
+                        title=title,
+                        content=content,
                         user_id=random.choice(user_ids),
                         date=random_timestamp()
                     )
@@ -178,17 +255,35 @@ def init_db():
         categories = ['Buyers', 'Sellers']
         for category in categories:
             logger.info(f"Populating {category} marketplace posts with {NUM_POSTS_PER_CATEGORY} posts")
+            # For Sellers, mix IAB and non-IAB posts
+            if category == 'Sellers':
+                iab_posts = min(NUM_IAB_SELLER_POSTS, NUM_POSTS_PER_CATEGORY)
+                non_iab_posts = NUM_POSTS_PER_CATEGORY - iab_posts
+                post_indices = [1] * iab_posts + [0] * non_iab_posts
+                random.shuffle(post_indices)
+            else:
+                post_indices = [0] * NUM_POSTS_PER_CATEGORY  # Buyers: all non-IAB
+
             for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
                 batch_size = min(5, NUM_POSTS_PER_CATEGORY - i)
-                title_prompt = f"Short title for a {category} marketplace post: "
-                titles = generate_text(title_prompt, max_tokens=50, batch_size=batch_size)
-                descriptions = generate_text(random.choice(marketplace_prompts), max_tokens=200, batch_size=batch_size)
+                titles = []
+                descriptions = []
+                for j in range(batch_size):
+                    idx = i + j
+                    if category == 'Sellers' and post_indices[idx] == 1:
+                        title = generate_text(random.choice(iab_marketplace_templates["title"]), iab_replacements)[:100]
+                        description = generate_text(random.choice(iab_marketplace_templates["description"]), iab_replacements)[:200]
+                    else:
+                        title = generate_text(random.choice(marketplace_templates["title"][category]), marketplace_replacements)[:100]
+                        description = generate_text(random.choice(marketplace_templates["description"][category]), marketplace_replacements)[:200]
+                    titles.append(title)
+                    descriptions.append(description)
                 for j, (title, description) in enumerate(zip(titles, descriptions)):
                     price = f"${random.randint(50, 1000)}" if category == 'Sellers' else f"Offer ${random.randint(50, 500)}"
                     market = Marketplace(
                         category=category,
-                        title=title[:100],
-                        description=description[:200],
+                        title=title,
+                        description=description,
                         user_id=random.choice(user_ids),
                         price=price,
                         date=random_timestamp()
@@ -209,15 +304,14 @@ def init_db():
             logger.info(f"Populating {category} service posts with {NUM_POSTS_PER_CATEGORY} posts")
             for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
                 batch_size = min(5, NUM_POSTS_PER_CATEGORY - i)
-                title_prompt = f"Short title for a {category} service post: "
-                titles = generate_text(title_prompt, max_tokens=50, batch_size=batch_size)
-                descriptions = generate_text(random.choice(service_prompts), max_tokens=200, batch_size=batch_size)
+                titles = [generate_text(random.choice(service_templates["title"][category]), service_replacements)[:100] for _ in range(batch_size)]
+                descriptions = [generate_text(random.choice(service_templates["description"][category]), service_replacements)[:200] for _ in range(batch_size)]
                 for j, (title, description) in enumerate(zip(titles, descriptions)):
                     price = f"${random.randint(100, 2000)}" if category == 'Sell' else 'Negotiable'
                     service = Service(
                         category=category,
-                        title=title[:100],
-                        description=description[:200],
+                        title=title,
+                        description=description,
                         user_id=random.choice(user_ids),
                         price=price,
                         date=random_timestamp()
@@ -241,7 +335,7 @@ def init_db():
         total_comments = len(all_posts) * NUM_COMMENTS_PER_POST
         for i, (post_id, post_type) in enumerate(all_posts):
             for j in range(NUM_COMMENTS_PER_POST):
-                content = generate_text(random.choice(comment_prompts), max_tokens=100)[:100]
+                content = generate_text(random.choice(comment_templates), comment_replacements)[:100]
                 comment = Comment(
                     post_type=post_type,
                     post_id=post_id,

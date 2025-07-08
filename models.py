@@ -9,16 +9,18 @@ class User(db.Model, UserMixin):
     username = db.Column(db.String(50), unique=True, nullable=False)
     password = db.Column(db.String(128), nullable=False)
     avatar = db.Column(db.String(200), nullable=True)  # Path to avatar image
-    announcements = db.relationship('Announcement', backref='user', lazy=True)
-    marketplace_posts = db.relationship('Marketplace', backref='user', lazy=True)
-    services = db.relationship('Service', backref='user', lazy=True)
-    comments = db.relationship('Comment', backref='user', lazy=True)
+    announcements = db.relationship('Announcement', backref='author', lazy=True)
+    marketplace_posts = db.relationship('Marketplace', backref='author', lazy=True)
+    services = db.relationship('Service', backref='author', lazy=True)
+    comments = db.relationship('Comment', backref='author', lazy=True)
+    shoutbox_messages = db.relationship('Shoutbox', backref='author', lazy=True)  # Changed backref to 'author'
 
 class Shoutbox(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     message = db.Column(db.Text)
     timestamp = db.Column(db.String(20))
+    user = db.relationship('User', backref='shoutbox', lazy=True)  # Changed backref to 'shoutbox'
 
 class Announcement(db.Model):
     id = db.Column(db.Integer, primary_key=True)
