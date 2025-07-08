@@ -1,14 +1,24 @@
 # app.py
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template, jsonify, request, redirect, url_for, flash
 from flask_sqlalchemy import SQLAlchemy
-from models import db, Shoutbox, Announcement, Marketplace, Service, Comment
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_bcrypt import Bcrypt
+from models import db, User, Shoutbox, Announcement, Marketplace, Service, Comment
 
 app = Flask(__name__)
 
-# Configure SQLAlchemy
+# Configure SQLAlchemy and Flask
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///database.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+app.config['SECRET_KEY'] = 'your-secret-key-here'  # Replace with a secure key
 db.init_app(app)
+bcrypt = Bcrypt(app)
+login_manager = LoginManager(app)
+login_manager.login_view = 'login'
+
+@login_manager.user_loader
+def load_user(user_id):
+    return User.query.get(int(user_id))
 
 # Routes for pages
 @app.route('/')
@@ -24,20 +34,85 @@ def services():
     return render_template('services.html')
 
 @app.route('/search')
+@login_required
 def search():
     return render_template('search.html')
 
-@app.route('/login')
+@app.route('/login', methods=['GET', 'POST'])
 def login():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        user = User.query.filter_by(username=username).first()
+        if user and bcrypt.check_password_hash(user.password, password):
+            login_user(user)
+            return redirect(url_for('home'))
+        flash('Invalid username or password', 'danger')
     return render_template('login.html')
 
-@app.route('/register')
+@app.route('/register', methods=['GET', 'POST'])
 def register():
+    if current_user.is_authenticated:
+        return redirect(url_for('home'))
+    if request.method == 'POST':
+        username = request.form['username']
+        password = request.form['password']
+        confirm_password = request.form['confirm_password']
+        if password != confirm_password:
+            flash('Passwords do not match', 'danger')
+            return render_template('register.html')
+        if User.query.filter_by(username=username).first():
+            flash('Username already taken', 'danger')
+            return render_template('register.html')
+        hashed_password = bcrypt.generate_password_hash(password).decode('utf-8')
+        user = User(username=username, password=hashed_password, avatar='default.jpg')
+        db.session.add(user)
+        db.session.commit()
+        flash('Registration successful! Please log in.', 'success')
+        return redirect(url_for('login'))
     return render_template('register.html')
+
+@app.route('/logout')
+def logout():
+    logout_user()
+    flash('Logged out successfully', 'success')
+    return redirect(url_for('home'))
 
 @app.route('/category/<post_type>/<category>')
 def category(post_type, category):
-    return render_template('category.html', post_type=post_type, category=category)
+    page = request.args.get('page', 1, type=int)
+    return render_template('category.html', post_type=post_type, category=category, page=page)
+
+@app.route('/post/<post_type>/<int:post_id>')
+@login_required
+def post_detail(post_type, post_id):
+    if post_type == 'announcements':
+        post = Announcement.query.get_or_404(post_id)
+        comments = Comment.query.filter_by(post_type='announcement', post_id=post_id).order_by(Comment.date.desc()).all()
+    elif post_type == 'marketplace':
+        post = Marketplace.query.get_or_404(post_id)
+        comments = Comment.query.filter_by(post_type='marketplace', post_id=post_id).order_by(Comment.date.desc()).all()
+    elif post_type == 'services':
+        post = Service.query.get_or_404(post_id)
+        comments = Comment.query.filter_by(post_type='service', post_id=post_id).order_by(Comment.date.desc()).all()
+    else:
+        return render_template('404.html'), 404
+    user = User.query.filter_by(username=post.username).first_or_404()
+    post_count = (Announcement.query.filter_by(username=post.username).count() +
+                  Marketplace.query.filter_by(username=post.username).count() +
+                  Service.query.filter_by(username=post.username).count())
+    return render_template('post_detail.html', post=post, post_type=post_type, comments=comments, user=user, post_count=post_count)
+
+@app.route('/profile/<username>')
+@login_required
+def profile_detail(username):
+    user = User.query.filter_by(username=username).first_or_404()
+    post_count = (Announcement.query.filter_by(username=username).count() +
+                  Marketplace.query.filter_by(username=username).count() +
+                  Service.query.filter_by(username=username).count())
+    return render_template('profile_detail.html', user=user, post_count=post_count)
 
 # API endpoints for dynamic data
 @app.route('/api/shoutbox')
@@ -109,20 +184,83 @@ def get_category_counts():
 
 @app.route('/api/posts/<post_type>/<category>')
 def get_posts_by_category(post_type, category):
+    page = request.args.get('page', 1, type=int)
+    per_page = 20
     if post_type == 'announcements':
-        posts = Announcement.query.filter_by(category=category).order_by(Announcement.date.desc()).all()
-        return jsonify([{
+        posts = Announcement.query.filter_by(category=category).order_by(Announcement.date.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'posts': [{
+                'id': post.id,
+                'category': post.category,
+                'title': post.title,
+                'content': post.content,
+                'username': post.username,
+                'date': post.date,
+                'comments': Comment.query.filter_by(post_type='announcement', post_id=post.id).count()
+            } for post in posts.items],
+            'total_pages': posts.pages,
+            'current_page': posts.page
+        })
+    elif post_type == 'marketplace':
+        posts = Marketplace.query.filter_by(category=category).order_by(Marketplace.date.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'posts': [{
+                'id': post.id,
+                'category': post.category,
+                'title': post.title,
+                'description': post.description,
+                'username': post.username,
+                'price': post.price,
+                'date': post.date,
+                'comments': Comment.query.filter_by(post_type='marketplace', post_id=post.id).count()
+            } for post in posts.items],
+            'total_pages': posts.pages,
+            'current_page': posts.page
+        })
+    elif post_type == 'services':
+        posts = Service.query.filter_by(category=category).order_by(Service.date.desc()).paginate(page=page, per_page=per_page, error_out=False)
+        return jsonify({
+            'posts': [{
+                'id': post.id,
+                'category': post.category,
+                'title': post.title,
+                'description': post.description,
+                'username': post.username,
+                'price': post.price,
+                'date': post.date,
+                'comments': Comment.query.filter_by(post_type='service', post_id=post.id).count()
+            } for post in posts.items],
+            'total_pages': posts.pages,
+            'current_page': posts.page
+        })
+    return jsonify({'posts': [], 'total_pages': 0, 'current_page': 1})
+
+@app.route('/api/search', methods=['GET'])
+@login_required
+def search_posts():
+    query = request.args.get('query', '')
+    post_type = request.args.get('type', '')
+    posts = []
+    if post_type == '' or post_type == 'announcements':
+        announcements = Announcement.query.filter(
+            (Announcement.title.ilike(f'%{query}%')) |
+            (Announcement.content.ilike(f'%{query}%'))
+        ).all()
+        posts.extend([{
             'id': post.id,
             'category': post.category,
             'title': post.title,
             'content': post.content,
             'username': post.username,
             'date': post.date,
-            'comments': Comment.query.filter_by(post_type='announcement', post_id=post.id).count()
-        } for post in posts])
-    elif post_type == 'marketplace':
-        posts = Marketplace.query.filter_by(category=category).order_by(Marketplace.date.desc()).all()
-        return jsonify([{
+            'post_type': 'announcements'
+        } for post in announcements])
+    if post_type == '' or post_type == 'marketplace':
+        marketplace = Marketplace.query.filter(
+            (Marketplace.title.ilike(f'%{query}%')) |
+            (Marketplace.description.ilike(f'%{query}%'))
+        ).all()
+        posts.extend([{
             'id': post.id,
             'category': post.category,
             'title': post.title,
@@ -130,11 +268,14 @@ def get_posts_by_category(post_type, category):
             'username': post.username,
             'price': post.price,
             'date': post.date,
-            'comments': Comment.query.filter_by(post_type='marketplace', post_id=post.id).count()
-        } for post in posts])
-    elif post_type == 'services':
-        posts = Service.query.filter_by(category=category).order_by(Service.date.desc()).all()
-        return jsonify([{
+            'post_type': 'marketplace'
+        } for post in marketplace])
+    if post_type == '' or post_type == 'services':
+        services = Service.query.filter(
+            (Service.title.ilike(f'%{query}%')) |
+            (Service.description.ilike(f'%{query}%'))
+        ).all()
+        posts.extend([{
             'id': post.id,
             'category': post.category,
             'title': post.title,
@@ -142,9 +283,9 @@ def get_posts_by_category(post_type, category):
             'username': post.username,
             'price': post.price,
             'date': post.date,
-            'comments': Comment.query.filter_by(post_type='service', post_id=post.id).count()
-        } for post in posts])
-    return jsonify([])
+            'post_type': 'services'
+        } for post in services])
+    return jsonify(posts)
 
 if __name__ == '__main__':
     with app.app_context():
