@@ -149,7 +149,7 @@ def get_shoutbox():
     shoutbox = Shoutbox.query.order_by(Shoutbox.timestamp.desc()).limit(10).all()
     return jsonify([{
         'id': item.id,
-        'username': item.author.username,  # Changed from user to author
+        'username': item.author.username,
         'message': item.message,
         'timestamp': item.timestamp
     } for item in shoutbox])
