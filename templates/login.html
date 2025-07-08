@@ -5,14 +5,14 @@
     <h2 class="text-light">Login</h2>
     <div class="card bg-dark border-secondary">
         <div class="card-body">
-            <form>
+            <form method="POST">
                 <div class="mb-3">
                     <label for="username" class="form-label text-light">Username</label>
-                    <input type="text" id="username" class="form-control bg-dark text-light border-secondary" placeholder="Enter username">
+                    <input type="text" id="username" name="username" class="form-control bg-dark text-light border-secondary" placeholder="Enter username" required>
                 </div>
                 <div class="mb-3">
                     <label for="password" class="form-label text-light">Password</label>
-                    <input type="password" id="password" class="form-control bg-dark text-light border-secondary" placeholder="Enter password">
+                    <input type="password" id="password" name="password" class="form-control bg-dark text-light border-secondary" placeholder="Enter password" required>
                 </div>
                 <button type="submit" class="btn btn-outline-secondary">Login</button>
             </form>

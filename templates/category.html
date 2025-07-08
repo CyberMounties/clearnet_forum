@@ -17,6 +17,17 @@
                 </thead>
                 <tbody class="text-light" id="category-posts-table"></tbody>
             </table>
+            <nav aria-label="Category pagination">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {{ 'disabled' if page == 1 }}">
+                        <a class="page-link" href="{{ url_for('category', post_type=post_type, category=category, page=page-1) if page > 1 else '#' }}">Previous</a>
+                    </li>
+                    <li class="page-item"><span class="page-link" id="pagination-links"></span></li>
+                    <li class="page-item">
+                        <a class="page-link" href="#" id="next-page">Next</a>
+                    </li>
+                </ul>
+            </nav>
         </div>
     </div>
     <a href="{{ url_for('home') }}" class="btn btn-outline-secondary mt-3">Back to Home</a>
