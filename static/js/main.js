@@ -15,13 +15,15 @@ $(document).ready(function() {
     // Function to load category counts
     function loadCategoryCounts() {
         $.get('/api/category_counts', function(data) {
-            $('#announcements-count').text(data.announcements.Announcements);
-            $('#general-count').text(data.announcements.General);
-            $('#mm-service-count').text(data.announcements['MM Service']);
-            $('#buyers-count').text(data.marketplace.Buyers);
-            $('#sellers-count').text(data.marketplace.Sellers);
-            $('#sell-services-count').text(data.services.Sell);
-            $('#buy-services-count').text(data.services.Buy);
+            $('#announcements-count').text(data.announcements.Announcements || 0);
+            $('#general-count').text(data.announcements.General || 0);
+            $('#mm-service-count').text(data.announcements['MM Service'] || 0);
+            $('#buyers-count').text(data.marketplace.Buyers || 0);
+            $('#sellers-count').text(data.marketplace.Sellers || 0);
+            $('#sell-services-count').text(data.services.Sell || 0);
+            $('#buy-services-count').text(data.services.Buy || 0);
+        }).fail(function() {
+            console.error('Failed to load category counts');
         });
     }
 
@@ -71,6 +73,13 @@ $(document).ready(function() {
         loadCategoryCounts();
         // Poll shoutbox every 5 seconds
         setInterval(loadShoutbox, 5000);
+    }
+
+    // Load data on marketplace or services page
+    if ($('#buyers-count').length || $('#sellers-count').length || $('#sell-services-count').length || $('#buy-services-count').length) {
+        loadCategoryCounts();
+        // Poll category counts every 60 seconds to reflect sellers_simulator.py updates
+        setInterval(loadCategoryCounts, 60000);
     }
 
     // Load data on category page
