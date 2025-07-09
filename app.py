@@ -1,11 +1,11 @@
 # app.py
 from flask import Flask, render_template, jsonify, request, redirect, url_for, flash, session
-from flask_sqlalchemy import SQLAlchemy
 from flask_login import LoginManager, login_user, logout_user, login_required, current_user
 from flask_bcrypt import Bcrypt
 from models import db, User, Shoutbox, Announcement, Marketplace, Service, Comment
 import string, random, os 
 from captcha.image import ImageCaptcha
+from datetime import datetime
 
 
 app = Flask(__name__)
@@ -133,23 +133,91 @@ def category(post_type, category):
     page = request.args.get('page', 1, type=int)
     return render_template('category.html', post_type=post_type, category=category, page=page)
 
+
 @app.route('/post/<post_type>/<int:post_id>')
 @login_required
 def post_detail(post_type, post_id):
+    if post_type not in ['announcements', 'marketplace', 'services']:
+        return render_template('404.html'), 404
+    return render_template('post_detail.html', post_type=post_type, post_id=post_id)
+
+
+
+@app.route('/api/post/<post_type>/<int:post_id>', methods=['GET'])
+@login_required
+def api_post_detail(post_type, post_id):
+    def format_date(date_obj):
+        """Helper function to format date as string, handling both datetime and string inputs."""
+        if isinstance(date_obj, datetime):
+            return date_obj.strftime('%Y-%m-%d %H:%M:%S')
+        elif isinstance(date_obj, str):
+            try:
+                parsed_date = datetime.strptime(date_obj, '%Y-%m-%d %H:%M:%S')
+                return parsed_date.strftime('%Y-%m-%d %H:%M:%S')
+            except ValueError:
+                return date_obj
+        return 'N/A'
+
     if post_type == 'announcements':
         post = Announcement.query.get_or_404(post_id)
+        post_data = {
+            'id': post.id,
+            'title': post.title,
+            'category': post.category,
+            'content': post.content,
+            'user_id': post.user_id,
+            'username': post.author.username,
+            'date': format_date(post.date)
+        }
         comments = Comment.query.filter_by(post_type='announcement', post_id=post_id).order_by(Comment.date.desc()).all()
     elif post_type == 'marketplace':
         post = Marketplace.query.get_or_404(post_id)
+        post_data = {
+            'id': post.id,
+            'title': post.title,
+            'category': post.category,
+            'description': post.description,
+            'price': post.price,
+            'user_id': post.user_id,
+            'username': post.author.username,
+            'date': format_date(post.date)
+        }
         comments = Comment.query.filter_by(post_type='marketplace', post_id=post_id).order_by(Comment.date.desc()).all()
     elif post_type == 'services':
         post = Service.query.get_or_404(post_id)
+        post_data = {
+            'id': post.id,
+            'title': post.title,
+            'category': post.category,
+            'description': post.description,
+            'price': post.price,
+            'user_id': post.user_id,
+            'username': post.author.username,
+            'date': format_date(post.date)
+        }
         comments = Comment.query.filter_by(post_type='service', post_id=post_id).order_by(Comment.date.desc()).all()
     else:
-        return render_template('404.html'), 404
-    user = User.query.get_or_404(post.user_id)
+        return jsonify({'error': 'Invalid post type'}), 404
+
+    user = User.query.get_or_404(post_data['user_id'])
     post_count = len(user.announcements) + len(user.marketplace_posts) + len(user.services)
-    return render_template('post_detail.html', post=post, post_type=post_type, comments=comments, user=user, post_count=post_count)
+    comments_data = [{
+        'id': comment.id,
+        'content': comment.content,
+        'username': comment.author.username,
+        'date': format_date(comment.date)
+    } for comment in comments]
+
+    return jsonify({
+        'post': post_data,
+        'comments': comments_data,
+        'user': {
+            'username': user.username,
+            'post_count': post_count
+        }
+    })
+
+
 
 @app.route('/profile/<username>')
 @login_required

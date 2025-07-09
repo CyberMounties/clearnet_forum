@@ -67,6 +67,58 @@ $(document).ready(function() {
         }
     }
 
+    // New function to load post details dynamically
+    function loadPostDetails() {
+        if ($('#post-title').length) { // Check if on post detail page
+            console.log('Loading post details for:', postType, postId); // Debug log
+            $.get(`/api/post/${postType}/${postId}`, function(data) {
+                console.log('API response:', data); // Debug log
+                const post = data.post;
+                const comments = data.comments;
+                const user = data.user;
+
+                // Update post title
+                $('#post-title').text(post.title || 'Untitled');
+
+                // Update post content
+                let contentHtml = '';
+                if (postType === 'announcements') {
+                    contentHtml = post.content || '';
+                } else {
+                    contentHtml = `${post.description || ''}<br><strong>Price:</strong> ${post.price || 'N/A'}`;
+                }
+                contentHtml += `<br><br><strong>Posted by:</strong> <a href="/profile/${post.username}" class="text-light">${post.username}</a>`;
+                contentHtml += `<br><strong>Date:</strong> ${post.date}`;
+                $('#post-content').html(contentHtml);
+
+                // Update category
+                $('#post-category').text(post.category || 'N/A');
+
+                // Update comments
+                $('#comments-section').empty();
+                if (comments && comments.length > 0) {
+                    comments.forEach(function(comment) {
+                        $('#comments-section').append(
+                            `<div class="mb-3">
+                                <p class="text-light"><strong>${comment.username}</strong> (${comment.date}): ${comment.content}</p>
+                            </div>`
+                        );
+                    });
+                } else {
+                    $('#comments-section').html('<p class="text-light">No comments yet.</p>');
+                }
+
+                // Update back link
+                $('#back-link').attr('href', `/category/${postType}/${post.category}`).text(`Back to ${post.category}`);
+            }).fail(function(jqXHR, textStatus, errorThrown) {
+                console.error('Failed to load post details:', textStatus, errorThrown); // Debug log
+                $('#post-title').text('Error');
+                $('#post-content').html('<p class="text-light">Failed to load post. Please try again later.</p>');
+                $('#comments-section').html('<p class="text-light">Failed to load comments.</p>');
+            });
+        }
+    }
+
     // Load data on home page
     if ($('#shoutbox').length) {
         loadShoutbox();
@@ -86,6 +138,9 @@ $(document).ready(function() {
     if ($('#category-posts-table').length) {
         loadCategoryPosts();
     }
+
+    // Load data on post detail page
+    loadPostDetails();
 
     // Handle shoutbox form submission
     $('#shoutbox-form').submit(function(e) {
