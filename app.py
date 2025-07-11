@@ -28,6 +28,11 @@ limiter = Limiter(
 
 @app.errorhandler(429)
 def ratelimit_handler(e):
+    if request.path.startswith('/api/'):
+        return jsonify({
+            'error': 'Rate limit exceeded',
+            'message': 'Please try again later'
+        }), 429
     return render_template("429.html", retry_after=e.description), 429
 
 @login_manager.user_loader
@@ -155,8 +160,8 @@ def post_detail(post_type, post_id):
     return render_template('post_detail.html', post_type=post_type, post_id=post_id)
 
 
-@limiter.limit("30 per minute")
 @app.route('/api/post/<post_type>/<int:post_id>', methods=['GET'])
+@limiter.limit("30 per minute")
 @login_required
 def api_post_detail(post_type, post_id):
     def format_date(date_obj):

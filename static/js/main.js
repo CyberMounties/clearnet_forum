@@ -67,7 +67,7 @@ $(document).ready(function() {
         }
     }
 
-    // New function to load post details dynamically
+    // Modified function to load post details dynamically
     function loadPostDetails() {
         if ($('#post-title').length) { // Check if on post detail page
             console.log('Loading post details for:', postType, postId); // Debug log
@@ -112,9 +112,22 @@ $(document).ready(function() {
                 $('#back-link').attr('href', `/category/${postType}/${post.category}`).text(`Back to ${post.category}`);
             }).fail(function(jqXHR, textStatus, errorThrown) {
                 console.error('Failed to load post details:', textStatus, errorThrown); // Debug log
-                $('#post-title').text('Error');
-                $('#post-content').html('<p class="text-light">Failed to load post. Please try again later.</p>');
-                $('#comments-section').html('<p class="text-light">Failed to load comments.</p>');
+                if (jqXHR.status === 429) {
+                    // Handle rate limit exceeded
+                    const response = jqXHR.responseJSON;
+                    const retryAfter = response ? response.retry_after : 'a short while';
+                    $('#post-title').text('Rate Limit Exceeded');
+                    $('#post-content').html(
+                        `<p class="text-light">You've made too many requests.</p>` +
+                        `<p class="text-light"><a href="/home" class="text-light">Go to Home</a></p>`
+                    );
+                    $('#comments-section').html('<p class="text-light">Comments unavailable due to rate limit.</p>');
+                } else {
+                    // Handle other errors (e.g., 404, 401)
+                    $('#post-title').text('Error');
+                    $('#post-content').html('<p class="text-light">Failed to load post. Please try again later.</p>');
+                    $('#comments-section').html('<p class="text-light">Failed to load comments.</p>');
+                }
             });
         }
     }
