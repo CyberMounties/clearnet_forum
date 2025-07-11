@@ -33,7 +33,7 @@ def ratelimit_handler(e):
             'error': 'Rate limit exceeded',
             'message': 'Please try again later'
         }), 429
-    return render_template("429.html", retry_after=e.description), 429
+    return render_template("429.html"), 429
 
 @login_manager.user_loader
 def load_user(user_id):
