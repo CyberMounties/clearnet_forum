@@ -6,6 +6,8 @@ from models import db, User, Shoutbox, Announcement, Marketplace, Service, Comme
 import string, random, os 
 from captcha.image import ImageCaptcha
 from datetime import datetime
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 
 app = Flask(__name__)
@@ -16,6 +18,17 @@ db.init_app(app)
 bcrypt = Bcrypt(app)
 login_manager = LoginManager(app)
 login_manager.login_view = 'login'
+
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["500 per day", "50 per hour"],
+    storage_uri="memory://"
+)
+
+@app.errorhandler(429)
+def ratelimit_handler(e):
+    return render_template("429.html", retry_after=e.description), 429
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -40,13 +53,13 @@ def search():
     return render_template('search.html')
 
 # CAPTCHA configuration
-CAPTCHA_LENGTH = 8
+CAPTCHA_LENGTH = 6
 CAPTCHA_CHARS = string.ascii_uppercase + string.digits
 image_captcha = ImageCaptcha(fonts=['fonts/DejaVuSans.ttf'], width=200, height=60)
 
 
 def generate_captcha():
-    """Generate an 8-character CAPTCHA and image."""
+    """Generate an 6-character CAPTCHA and image."""
     code = ''.join(random.choice(CAPTCHA_CHARS) for _ in range(CAPTCHA_LENGTH))
     image_path = os.path.join('static', 'captchas', f'captcha_{code}.png')
     image_captcha.write(code, image_path)
@@ -142,7 +155,7 @@ def post_detail(post_type, post_id):
     return render_template('post_detail.html', post_type=post_type, post_id=post_id)
 
 
-
+@limiter.limit("30 per minute")
 @app.route('/api/post/<post_type>/<int:post_id>', methods=['GET'])
 @login_required
 def api_post_detail(post_type, post_id):

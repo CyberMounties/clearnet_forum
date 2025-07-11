@@ -9,9 +9,9 @@ import logging
 
 # Configuration variables
 NUM_SHOUTBOX_MESSAGES = 20
-NUM_POSTS_PER_CATEGORY = 13
+NUM_POSTS_PER_CATEGORY = 200
 NUM_COMMENTS_PER_POST = 2
-NUM_IAB_SELLER_POSTS = 3  # Number of random IAB posts in Sellers (10 predefined + 3 = 13)
+NUM_IAB_SELLER_POSTS = 3
 
 # Configure logging
 logging.basicConfig(
@@ -307,7 +307,8 @@ def init_db():
         # Populate Marketplace (NUM_POSTS_PER_CATEGORY per category: Buyers, Sellers)
         categories = ['Buyers', 'Sellers']
         for category in categories:
-            logger.info(f"Populating {category} marketplace posts with {NUM_POSTS_PER_CATEGORY} posts")
+            target_posts = 513 if category == 'Sellers' else NUM_POSTS_PER_CATEGORY
+            logger.info(f"Populating {category} marketplace posts with {target_posts} posts")
             if category == 'Sellers':
                 # Add predefined IAB posts
                 predefined_count = len(predefined_iab_posts)
@@ -331,7 +332,7 @@ def init_db():
                     return
 
                 # Add random IAB posts
-                iab_posts = min(NUM_IAB_SELLER_POSTS, NUM_POSTS_PER_CATEGORY - predefined_count)
+                iab_posts = min(NUM_IAB_SELLER_POSTS, target_posts - predefined_count)
                 for i in range(iab_posts):
                     title = generate_text(random.choice(iab_marketplace_templates["title"]), iab_replacements)[:100]
                     description = generate_text(random.choice(iab_marketplace_templates["description"]), iab_replacements)[:200]
@@ -354,7 +355,32 @@ def init_db():
                     db.session.rollback()
                     return
 
-                # No non-IAB posts needed since 10 predefined + 3 random = 13
+                # Add non-IAB posts to reach 513
+                non_iab_posts = target_posts - (predefined_count + iab_posts)
+                logger.info(f"Populating {non_iab_posts} non-IAB posts for {category}")
+                for i in range(0, non_iab_posts, 5):  # Batch of 5
+                    batch_size = min(5, non_iab_posts - i)
+                    titles = [generate_text(random.choice(marketplace_templates["title"][category]), marketplace_replacements)[:100] for _ in range(batch_size)]
+                    descriptions = [generate_text(random.choice(marketplace_templates["description"][category]), marketplace_replacements)[:200] for _ in range(batch_size)]
+                    for j, (title, description) in enumerate(zip(titles, descriptions)):
+                        price = f"${random.randint(50, 1000)}"
+                        market = Marketplace(
+                            category=category,
+                            title=title,
+                            description=description,
+                            user_id=random.choice(user_ids),
+                            price=price,
+                            date=random_timestamp()
+                        )
+                        db.session.add(market)
+                        logger.info(f"Added {category} non-IAB post {i + j + 1}/{non_iab_posts}: {title[:30]}...")
+                    try:
+                        db.session.commit()
+                        logger.info(f"Committed {category} non-IAB posts {i + 1}-{i + batch_size}")
+                    except Exception as e:
+                        logger.error(f"Error committing {category} non-IAB posts: {str(e)}")
+                        db.session.rollback()
+                        return
             else:
                 # Buyers: all non-IAB
                 for i in range(0, NUM_POSTS_PER_CATEGORY, 5):  # Batch of 5
@@ -436,7 +462,7 @@ def init_db():
                 db.session.rollback()
                 return
 
-        total_posts = NUM_POSTS_PER_CATEGORY * (len(['Announcements', 'General', 'MM Service']) + len(['Buyers', 'Sellers']) + len(['Buy', 'Sell']))
+        total_posts = NUM_POSTS_PER_CATEGORY * (len(['Announcements', 'General', 'MM Service']) + len(['Buyers']) + len(['Buy', 'Sell'])) + 513
         logger.info("Database population completed successfully")
         print(f"Database initialized with 10 users, {total_posts} posts, {NUM_SHOUTBOX_MESSAGES} shoutbox messages, and {total_comments} comments.")
 
