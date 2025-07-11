@@ -9,7 +9,7 @@ import logging
 
 # Configuration variables
 NUM_SHOUTBOX_MESSAGES = 20
-NUM_POSTS_PER_CATEGORY = 200
+NUM_POSTS_PER_CATEGORY = 100
 NUM_COMMENTS_PER_POST = 2
 NUM_IAB_SELLER_POSTS = 3
 
@@ -307,7 +307,7 @@ def init_db():
         # Populate Marketplace (NUM_POSTS_PER_CATEGORY per category: Buyers, Sellers)
         categories = ['Buyers', 'Sellers']
         for category in categories:
-            target_posts = 513 if category == 'Sellers' else NUM_POSTS_PER_CATEGORY
+            target_posts = 213 if category == 'Sellers' else NUM_POSTS_PER_CATEGORY
             logger.info(f"Populating {category} marketplace posts with {target_posts} posts")
             if category == 'Sellers':
                 # Add predefined IAB posts
@@ -355,7 +355,7 @@ def init_db():
                     db.session.rollback()
                     return
 
-                # Add non-IAB posts to reach 513
+                # Add non-IAB posts to reach 213
                 non_iab_posts = target_posts - (predefined_count + iab_posts)
                 logger.info(f"Populating {non_iab_posts} non-IAB posts for {category}")
                 for i in range(0, non_iab_posts, 5):  # Batch of 5
@@ -462,7 +462,7 @@ def init_db():
                 db.session.rollback()
                 return
 
-        total_posts = NUM_POSTS_PER_CATEGORY * (len(['Announcements', 'General', 'MM Service']) + len(['Buyers']) + len(['Buy', 'Sell'])) + 513
+        total_posts = NUM_POSTS_PER_CATEGORY * (len(['Announcements', 'General', 'MM Service']) + len(['Buyers']) + len(['Buy', 'Sell'])) + 213
         logger.info("Database population completed successfully")
         print(f"Database initialized with 10 users, {total_posts} posts, {NUM_SHOUTBOX_MESSAGES} shoutbox messages, and {total_comments} comments.")
 
