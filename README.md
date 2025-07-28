@@ -4,6 +4,18 @@ This repository provides code for a simulated clearnet cyber-crime forum, design
 
 To get started, download and install [Docker](https://docs.docker.com/compose/install/).
 
+## Tech-stack
+
+- Frontend
+    - HTML5
+    - CSS
+    - JavaScript
+- Backend
+    - Python Flask
+    - Jinja2 templating engine
+    - SQLite3 
+
+
 ## Running Docker
 
 If you are using Ubuntu 24.04 or later, you can set up and run the forum with the following commands:
